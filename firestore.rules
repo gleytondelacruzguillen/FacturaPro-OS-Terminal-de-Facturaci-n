@@ -1,0 +1,121 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 0.1 Global Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /test/connection {
+      allow read: if true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // 1. Validation Blueprints
+    function isValidClient(data) {
+      let required = ['name'];
+      let optional = ['phone', 'address', 'createdAt'];
+      return data.keys().hasAll(required) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 200 &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() <= 50)) &&
+             (!('address' in data) || (data.address is string && data.address.size() <= 500)) &&
+             (!('createdAt' in data) || data.createdAt == request.time);
+    }
+
+    function isValidProduct(data) {
+      let required = ['code', 'name', 'price', 'stock'];
+      let optional = ['createdAt'];
+      return data.keys().hasAll(required) &&
+             data.code is string && data.code.size() <= 50 &&
+             data.name is string && data.name.size() <= 200 &&
+             data.price is number && data.price >= 0 &&
+             data.stock is number &&
+             (!('createdAt' in data) || data.createdAt == request.time);
+    }
+
+    function isValidInvoice(data) {
+      let required = ['invoiceNumber', 'date', 'paymentType', 'items', 'total', 'status'];
+      let optional = ['client', 'subtotal', 'discount', 'tax', 'createdAt', 'updatedAt'];
+      return data.keys().hasAll(required) &&
+             data.invoiceNumber is int && data.invoiceNumber > 0 &&
+             data.date is timestamp &&
+             data.paymentType in ['Efectivo', 'Transferencia', 'Crédito'] &&
+             data.status in ['Pagada', 'Pendiente'] &&
+             data.items is list && data.items.size() <= 100 &&
+             data.total is number && data.total >= 0 &&
+             (!('createdAt' in data) || data.createdAt == request.time) &&
+             (!('updatedAt' in data) || data.updatedAt == request.time);
+    }
+
+    function isValidSettings(data) {
+      return data.keys().hasAll(['businessName', 'currency']) &&
+             data.businessName is string && data.businessName.size() <= 200 &&
+             data.currency is string && data.currency.size() <= 10 &&
+             (!('taxPercentage' in data) || data.taxPercentage is number) &&
+             (!('updatedAt' in data) || data.updatedAt == request.time);
+    }
+
+    // 2. Collection Rules
+    match /users/{userId} {
+      
+      match /clients/{clientId} {
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId); 
+        allow create: if isOwner(userId) && isValidId(clientId) && isValidClient(incoming()) && incoming().keys().size() <= 10;
+        allow update: if isOwner(userId) && isValidClient(incoming()) && 
+                        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'address']);
+        allow delete: if isOwner(userId);
+      }
+
+      match /products/{productId} {
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(productId) && isValidProduct(incoming()) && incoming().keys().size() <= 10;
+        allow update: if isOwner(userId) && isValidProduct(incoming()) && 
+                        incoming().diff(existing()).affectedKeys().hasOnly(['code', 'name', 'price', 'stock']);
+        allow delete: if isOwner(userId);
+      }
+
+      match /invoices/{invoiceId} {
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(invoiceId) && isValidInvoice(incoming()) && incoming().keys().size() <= 20;
+        allow update: if isOwner(userId) && isValidInvoice(incoming()) && 
+                        (
+                          // Action: Update Status (Single field)
+                          (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])) ||
+                          // Action: Edit Invoice (Full edit)
+                          (existing().status != 'Pagada' && incoming().diff(existing()).affectedKeys().hasOnly(['items', 'total', 'subtotal', 'tax', 'discount', 'paymentType', 'updatedAt', 'client', 'date', 'status']))
+                        );
+        allow delete: if isOwner(userId);
+      }
+
+      match /settings/current {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidSettings(incoming()) && incoming().keys().size() <= 10;
+        allow update: if isOwner(userId) && isValidSettings(incoming()) && 
+                        incoming().diff(existing()).affectedKeys().hasOnly(['businessName', 'logo', 'address', 'phone', 'taxPercentage', 'currency', 'updatedAt']);
+      }
+    }
+  }
+}

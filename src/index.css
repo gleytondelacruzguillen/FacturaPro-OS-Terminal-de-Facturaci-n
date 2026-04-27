@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+@theme {
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #E5E7EB;
+  --color-slate-300: #D1D5DB;
+  --color-slate-400: #94bcbe;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1E293B;
+  --color-slate-900: #0f172a;
+  
+  --color-brand-blue: #2563EB;
+}
+
+@layer base {
+  body {
+    @apply antialiased text-slate-800 bg-slate-200;
+  }
+
+  /* Custom Scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 rounded-full hover:bg-slate-400 transition-colors;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-6 py-2 bg-blue-600 text-white rounded-md text-sm font-bold hover:bg-blue-700 shadow-md transition-all active:scale-95;
+  }
+  
+  .card-paper {
+    @apply bg-white shadow-2xl rounded-sm p-10 border border-slate-300 relative mx-auto w-full max-w-[800px] overflow-hidden transition-all;
+  }
+}
+
+@media print {
+  body {
+    @apply bg-white p-0 m-0;
+  }
+  
+  /* Hide UI elements */
+  aside, header, .print\:hidden, nav, button {
+    display: none !important;
+  }
+
+  /* Force main area to take full width */
+  main {
+    margin-left: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  .max-w-7xl, .max-w-5xl {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .shadow-xl, .shadow-md, .shadow-sm {
+    box-shadow: none !important;
+  }
+
+  .border {
+    border-color: #eee !important;
+  }
+
+  .rounded-\[2\.5rem\], .rounded-3xl, .rounded-2xl {
+    border-radius: 0 !important;
+  }
+
+  /* Ensure the printed invoice looks like paper */
+  .bg-white {
+    background-color: white !important;
+  }
+}
